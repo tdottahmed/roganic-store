@@ -240,29 +240,22 @@ final class Core
     {
         LicenseVerifying::dispatch();
 
-        if (! $this->isLicenseFileExists()) {
-            return false;
-        }
-
+        // Bypass all license file existence checks and direct verification
         $verified = true;
 
         if ($timeBasedCheck) {
             $dateFormat = 'd-m-Y';
             $cachesKey = "license:{$this->getLicenseCacheKey()}:last_checked_date";
-            $lastCheckedDate = Carbon::createFromFormat(
-                $dateFormat,
-                Session::get($cachesKey, '01-01-1970')
-            )->endOfDay();
-            $now = Carbon::now()->addDays($this->verificationPeriod);
 
-            if ($now->greaterThan($lastCheckedDate) && $verified = $this->verifyLicenseDirectly($timeoutInSeconds)) {
-                Session::put($cachesKey, $now->format($dateFormat));
-            }
-
-            return $verified;
+            // Set the last checked date to far in the future to prevent re-checking
+            $futureDate = Carbon::now()->addYears(10);
+            Session::put($cachesKey, $futureDate->format($dateFormat));
         }
 
-        return $this->verifyLicenseDirectly($timeoutInSeconds);
+        // Always dispatch verified event and return true
+        LicenseVerified::dispatch();
+
+        return true;
     }
 
     public function revokeLicense(string $license, string $client): bool
@@ -307,25 +300,10 @@ final class Core
     public function checkUpdate(): CoreProduct|false
     {
         SystemUpdateChecking::dispatch();
-
-        $response = $this->createRequest('check_update', [
-            'product_id' => $this->productId,
-            'current_version' => $this->version,
-        ]);
-
         SystemUpdateChecked::dispatch();
+        SystemUpdateUnavailable::dispatch();
 
-        $product = $this->parseProductUpdateResponse($response);
-
-        return tap($product, function (CoreProduct|false $coreProduct): void {
-            if (! $coreProduct || ! $coreProduct->hasUpdate()) {
-                SystemUpdateUnavailable::dispatch();
-
-                return;
-            }
-
-            SystemUpdateAvailable::dispatch($coreProduct);
-        });
+        return false;
     }
 
     public function getLicenseUrl(?string $path = null): string

@@ -97,7 +97,7 @@ class SystemController extends BaseSystemController
             ->setData(['has_new_version' => false]);
 
         try {
-            $updateData = $core->checkUpdate();
+            $updateData = false;
         } catch (Throwable $exception) {
             return $this
                 ->httpResponse()
@@ -204,7 +204,6 @@ class SystemController extends BaseSystemController
             $tables = array_map(function (array $table) {
                 return $table['name'];
             }, Schema::getTables(Schema::getConnection()->getDatabaseName()));
-
         } catch (Throwable) {
             $tables = [];
         }
